@@ -1,0 +1,143 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>NFL Card Shop 3D</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#05070b;color:white;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;touch-action:none}
+canvas{position:fixed;inset:0;width:100%;height:100%}
+.screen{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;background:linear-gradient(160deg,#050814f2,#071525f5)}
+.home{width:min(92vw,520px);text-align:center;padding:28px 20px}.logo{font-size:48px;font-weight:950;letter-spacing:-3px;text-shadow:0 8px 30px #000}.sub{opacity:.68;margin:5px 0 26px}
+.big{display:block;width:100%;margin:9px 0;padding:18px;border-radius:18px;font-size:18px}
+button{border:0;border-radius:14px;padding:12px 14px;font-weight:850;background:#fff;color:#111;box-shadow:0 5px 18px #0008}
+.panel{background:#07101de8;border:1px solid #ffffff22;backdrop-filter:blur(15px);border-radius:18px;box-shadow:0 12px 40px #0009}
+#hud{position:fixed;inset:0;z-index:5;pointer-events:none;display:none}
+#stats{position:absolute;top:max(10px,env(safe-area-inset-top));left:10px;padding:10px 13px;font-size:15px;line-height:1.4}
+#top{position:absolute;right:10px;top:max(10px,env(safe-area-inset-top));display:flex;gap:7px;pointer-events:auto}
+#actions{position:absolute;right:12px;bottom:max(18px,env(safe-area-inset-bottom));display:grid;grid-template-columns:105px 105px;gap:8px;pointer-events:auto}
+#joy{position:absolute;left:18px;bottom:max(22px,env(safe-area-inset-bottom));width:160px;height:160px;border-radius:50%;background:#ffffff16;border:2px solid #ffffff25;pointer-events:auto}
+#stick{position:absolute;left:48px;top:48px;width:64px;height:64px;border-radius:50%;background:#ffffff90}
+#toast{position:fixed;z-index:40;left:50%;top:18%;transform:translateX(-50%);padding:14px 18px;display:none;font-size:18px;font-weight:900}
+.modal{position:fixed;inset:0;z-index:30;display:none;align-items:center;justify-content:center;background:#02050acc}
+.modalbox{width:min(92vw,520px);max-height:82vh;overflow:auto;padding:22px}
+.row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #ffffff12}
+.card{padding:12px;margin:8px 0;border-radius:14px;background:linear-gradient(135deg,#182638,#0e1621);border:1px solid #ffffff18}
+#reveal{display:none;z-index:35;position:fixed;inset:0;align-items:center;justify-content:center;background:#000d}
+.pack{width:170px;height:245px;border-radius:20px;background:linear-gradient(145deg,#d71920,#6e0710);box-shadow:0 20px 70px #000;display:flex;align-items:center;justify-content:center;font-size:25px;font-weight:950;transform:rotateY(0deg);transition:transform .9s,opacity .5s}
+.pack.open{transform:rotateY(720deg) scale(1.15);opacity:.15}
+.result{position:absolute;text-align:center;opacity:0;transform:scale(.4);transition:all .5s .65s}
+.result.show{opacity:1;transform:scale(1)}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="home" class="screen">
+ <div class="home">
+  <div class="logo">🏈 CARD SHOP</div><div class="sub">3D SPORTS CARD TYCOON</div>
+  <button class="big" onclick="startGame()">▶ PLAY SHOP</button>
+  <button class="big" onclick="openMenu('collection')">🃏 COLLECTION</button>
+  <button class="big" onclick="openMenu('shop')">🏪 STORE</button>
+  <div style="opacity:.5;font-size:12px;margin-top:20px">Your progress saves on this iPhone.</div>
+ </div>
+</div>
+
+<div id="hud">
+ <div id="stats" class="panel"></div>
+ <div id="top"><button onclick="openMenu('menu')">☰</button></div>
+ <div id="joy"><div id="stick"></div></div>
+ <div id="actions">
+  <button onclick="buyPack()">📦 PACK</button><button onclick="serve()">🤝 TALK</button>
+  <button onclick="sell()">💵 SELL</button><button onclick="openMenu('shop')">⬆️ SHOP</button>
+ </div>
+</div>
+
+<div id="toast" class="panel"></div>
+<div id="menu" class="modal"><div class="modalbox panel">
+ <h2>🏪 Store Menu</h2>
+ <div class="row"><b>Cash</b><span id="mCash"></span></div>
+ <div class="row"><b>Reputation</b><span id="mRep"></span></div>
+ <div class="row"><b>Shop Level</b><span id="mLevel"></span></div>
+ <button class="big" onclick="openMenu('collection')">🃏 Collection</button>
+ <button class="big" onclick="openMenu('shop')">🏪 Upgrade Shop</button>
+ <button class="big" onclick="save();closeMenus()">💾 Save</button>
+ <button class="big" onclick="goHome()">🏠 Home</button>
+ <button class="big" onclick="closeMenus()">CLOSE</button>
+ </div></div>
+
+<div id="collection" class="modal"><div class="modalbox panel">
+ <h2>🃏 My Collection</h2><div id="cards"></div><button class="big" onclick="closeMenus()">CLOSE</button>
+ </div></div>
+
+<div id="shop" class="modal"><div class="modalbox panel">
+ <h2>🏪 Shop Upgrades</h2><p>Higher levels increase customer rewards.</p>
+ <div class="card"><b>Current Level: <span id="shopLevel"></span></b><br><br>Next upgrade: <b>$<span id="upgradeCost"></span></b></div>
+ <button class="big" onclick="upgrade()">⬆️ BUY UPGRADE</button>
+ <button class="big" onclick="closeMenus()">CLOSE</button>
+ </div></div>
+
+<div id="reveal"><div class="pack" id="pack">PACK</div><div class="result" id="result"></div></div>
+
+<script>
+const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');
+let W=innerWidth,H=innerHeight,dpr=devicePixelRatio||1;
+function resize(){W=innerWidth;H=innerHeight;canvas.width=W*dpr;canvas.height=H*dpr;canvas.style.width=W+'px';canvas.style.height=H+'px';ctx.setTransform(dpr,0,0,dpr,0,0)}addEventListener('resize',resize);resize();
+
+const players=[
+['Patrick Mahomes','Chiefs',90,'Legendary'],['Josh Allen','Bills',85,'Epic'],['Lamar Jackson','Ravens',82,'Epic'],
+['Justin Jefferson','Vikings',80,'Rare'],["Ja'Marr Chase",'Bengals',78,'Rare'],['Christian McCaffrey','49ers',76,'Rare'],
+['Micah Parsons','Cowboys',74,'Rare'],['CeeDee Lamb','Cowboys',70,'Uncommon'],['Amon-Ra St. Brown','Lions',68,'Uncommon'],
+['Travis Kelce','Chiefs',66,'Uncommon'],['Derrick Henry','Ravens',64,'Uncommon'],['Puka Nacua','Rams',62,'Uncommon'],
+['Bijan Robinson','Falcons',60,'Common'],['Jalen Hurts','Eagles',58,'Common'],['Tyreek Hill','Dolphins',56,'Common']
+];
+let data=JSON.parse(localStorage.cardShopV2||'null')||{money:500,rep:1,level:1,cards:[],served:0};
+let playing=false,joy={x:0,y:0},drag=false,last={x:0,y:0},cam={x:0,z:4,ang:0},customers=[];
+for(let i=0;i<6;i++)customers.push({x:(Math.random()-.5)*15,z:(Math.random()-.5)*12,phase:Math.random()*7,col:['#ef4444','#22c55e','#eab308','#a855f7','#f97316','#38bdf8'][i]});
+
+function save(){localStorage.cardShopV2=JSON.stringify(data);toast('GAME SAVED');update()}
+function startGame(){document.getElementById('home').style.display='none';document.getElementById('hud').style.display='block';playing=true}
+function goHome(){closeMenus();playing=false;document.getElementById('hud').style.display='none';document.getElementById('home').style.display='flex'}
+function openMenu(which){closeMenus();let e=document.getElementById(which);if(which==='menu'){updateMenu();e.style.display='flex'}else if(which==='collection'){updateCollection();e.style.display='flex'}else if(which==='shop'){updateShop();e.style.display='flex'}}
+function closeMenus(){document.querySelectorAll('.modal').forEach(e=>e.style.display='none')}
+function updateMenu(){mCash.textContent='$'+data.money;mRep.textContent=data.rep;mLevel.textContent=data.level}
+function updateCollection(){cards.innerHTML=data.cards.length?data.cards.slice().reverse().map(q=>`<div class="card"><b>${q.player}</b><br>${q.team} • ${q.rarity} • $${q.value}</div>`).join(''):'<p>No cards yet. Open a pack!</p>'}
+function updateShop(){shopLevel.textContent=data.level;upgradeCost.textContent=150*data.level}
+function update(){stats.innerHTML=`💵 $${data.money}　⭐ ${data.rep}<br>🏪 LVL ${data.level}　🃏 ${data.cards.length}　👥 ${data.served}`}
+function toast(t){let e=document.getElementById('toast');e.textContent=t;e.style.display='block';clearTimeout(window.t);window.t=setTimeout(()=>e.style.display='none',1700)}
+function rarity(){let r=Math.random()*100;return r<2?'Legendary':r<8?'Epic':r<23?'Rare':r<48?'Uncommon':'Common'}
+function buyPack(){if(data.money<25)return toast('You need $25');data.money-=25;let r=rarity(),pool=players.filter(p=>p[3]===r);if(!pool.length)pool=players.filter(p=>p[3]==='Common');let p=pool[Math.floor(Math.random()*pool.length)];let card={player:p[0],team:p[1],value:p[2],rarity:r};data.cards.push(card);showReveal(card);save();update()}
+function showReveal(card){let r=document.getElementById('reveal'),p=document.getElementById('pack'),res=document.getElementById('result');r.style.display='flex';p.classList.remove('open');res.className='result';res.innerHTML=`<div style="font-size:30px;font-weight:950">⭐ ${card.rarity}</div><div style="font-size:24px;margin:10px 0">${card.player}</div><div>${card.team} • Value $${card.value}</div><button style="margin-top:18px" onclick="closeReveal()">ADD TO COLLECTION</button>`;setTimeout(()=>p.classList.add('open'),350);setTimeout(()=>res.classList.add('show'),700)}
+function closeReveal(){document.getElementById('reveal').style.display='none'}
+function sell(){if(!data.cards.length)return toast('No cards to sell');let i=Math.floor(Math.random()*data.cards.length),q=data.cards[i],v=Math.floor(q.value*(1+Math.random()*.3));data.money+=v;data.cards.splice(i,1);toast('SOLD '+q.player+' +$'+v);save()}
+function upgrade(){let cost=150*data.level;if(data.money<cost)return toast('Need $'+cost);data.money-=cost;data.level++;data.rep+=2;toast('SHOP LEVEL '+data.level+'!');save();updateShop()}
+function serve(){let best=null,d=2.4;for(let q of customers){let dd=Math.hypot(q.x-cam.x,q.z-cam.z);if(dd<d){d=dd;best=q}}if(!best)return toast('Walk closer to a customer');let v=10+Math.floor(Math.random()*26)+data.rep*2;data.money+=v;data.rep++;data.served++;best.x=(Math.random()-.5)*15;best.z=(Math.random()-.5)*12;toast('CUSTOMER SERVED +$'+v);save()}
+function move(){cam.x+=joy.x*.10;cam.z+=joy.y*.10;cam.x=Math.max(-10,Math.min(10,cam.x));cam.z=Math.max(-8,Math.min(8,cam.z))}
+function proj(wx,wz,y){let dx=wx-cam.x,dz=wz-cam.z,co=Math.cos(cam.ang),si=Math.sin(cam.ang),rx=dx*co-dz*si,rz=dx*si+dz*co;if(rz<.8)return null;let s=430/rz;return [W/2+rx*s,H*.57-y*s,s]}
+function cube(wx,wz,y,w,h,color,text=''){let p=proj(wx,wz,y);if(!p)return;if(p[2]>1000)return;ctx.fillStyle=color;ctx.fillRect(p[0]-w*p[2]/2,p[1]-h*p[2],w*p[2],h*p[2]);if(text){ctx.fillStyle='#fff';ctx.textAlign='center';ctx.font=`${Math.max(9,12*p[2])}px sans-serif`;ctx.fillText(text,p[0],p[1]-h*p[2]-.05*p[2])}}
+function draw(){
+ if(playing)move();
+ ctx.clearRect(0,0,W,H);
+ let sky=ctx.createLinearGradient(0,0,0,H);sky.addColorStop(0,'#09111f');sky.addColorStop(.55,'#1b2733');sky.addColorStop(1,'#090d13');ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+ for(let i=-10;i<=10;i++){let a=proj(i,-10,0),b=proj(i,10,0);if(a&&b){ctx.strokeStyle='#ffffff13';ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke()}}
+ for(let z=-10;z<=10;z+=2){let a=proj(-11,z,0),b=proj(11,z,0);if(a&&b){ctx.strokeStyle='#ffffff13';ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke()}}
+ cube(0,-9,5.5,20,1.2,'#151c27','NFL CARD SHOP');cube(-7,-6,0,4.5,3,'#69462c','PACKS');cube(7,-6,0,4.5,3,'#69462c','CARDS');cube(-7,6,0,4.5,3,'#69462c','CASES');cube(7,6,0,4.5,3,'#69462c','DEALS');cube(0,7.5,0,7,2.1,'#8b5a35','REGISTER');
+ for(let i=0;i<8;i++)cube(-8.8+i*2.5,-8.7,2.5,0.75,1.15,['#e7edf5','#f0c84f','#9ed7ff','#bda2ff'][i%4]);
+ customers.forEach(q=>{q.phase+=.025;q.x+=Math.sin(q.phase)*.004;q.z+=Math.cos(q.phase*.7)*.004});
+ customers.slice().sort((a,b)=>b.z-a.z).forEach(q=>{let bob=Math.sin(q.phase)*.06;cube(q.x,q.z,bob,.7,1.7,q.col,'CUSTOMER')});
+ cube(cam.x,cam.z,0,.7,1.7,'#3b82f6','YOU');
+ requestAnimationFrame(draw)
+}
+draw();update();
+
+const joyEl=document.getElementById('joy'),stick=document.getElementById('stick');
+joyEl.addEventListener('pointerdown',e=>{drag=true;joyEl.setPointerCapture(e.pointerId);setJoy(e)});
+joyEl.addEventListener('pointermove',e=>{if(drag)setJoy(e)});
+joyEl.addEventListener('pointerup',()=>{drag=false;joy={x:0,y:0};stick.style.transform='translate(0,0)'});
+function setJoy(e){let r=joyEl.getBoundingClientRect(),dx=e.clientX-(r.left+r.width/2),dy=e.clientY-(r.top+r.height/2),m=Math.min(55,Math.hypot(dx,dy)),a=Math.atan2(dy,dx);joy={x:Math.cos(a)*m/55,y:Math.sin(a)*m/55};stick.style.transform=`translate(${joy.x*45}px,${joy.y*45}px)`}
+canvas.addEventListener('pointerdown',e=>{last={x:e.clientX,y:e.clientY}});
+canvas.addEventListener('pointermove',e=>{if(e.buttons){cam.ang+=(e.clientX-last.x)*.008;last={x:e.clientX,y:e.clientY}}});
+</script>
+</body></html>
